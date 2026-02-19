@@ -6,7 +6,12 @@ const outputDir = path.join(__dirname, "qr");
 const csvPath = path.join(__dirname, "sampleData.csv");
 
 // Only 3 QRs: Small (10), Medium (100), Large (1000). Large uses RANGE so one small, scannable QR.
-const QR_SIZE = 220; // larger modules = easier to scan
+// Low error correction (L) = less black, easier to scan. Larger width = bigger modules.
+const BASE_OPTS = {
+  margin: 4,
+  errorCorrectionLevel: "L", // 7% — less dense than M, much easier to scan
+  color: { dark: "#0f172a", light: "#ffffff" },
+};
 
 function ensureDir(dir) {
   if (!fs.existsSync(dir)) {
@@ -36,22 +41,15 @@ async function generate() {
   const mediumIds = allRecords.slice(0, 100).map((r) => r.log_id);
 
   const tasks = [
-    { payload: `DS:Small:${JSON.stringify(smallIds)}`, filename: "qr-small.png" },
-    { payload: `DS:Medium:${JSON.stringify(mediumIds)}`, filename: "qr-medium.png" },
-    { payload: "DS:Large:RANGE:1-1000", filename: "qr-large.png" },
+    { payload: `DS:Small:${JSON.stringify(smallIds)}`, filename: "qr-small.png", width: 260 },
+    { payload: `DS:Medium:${JSON.stringify(mediumIds)}`, filename: "qr-medium.png", width: 340 },
+    { payload: "DS:Large:RANGE:1-1000", filename: "qr-large.png", width: 260 },
   ];
 
-  const opts = {
-    width: QR_SIZE,
-    margin: 2,
-    errorCorrectionLevel: "M",
-    color: { dark: "#0f172a", light: "#ffffff" },
-  };
-
-  for (const { payload, filename } of tasks) {
+  for (const { payload, filename, width } of tasks) {
     const filePath = path.join(outputDir, filename);
-    await QRCode.toFile(filePath, payload, opts);
-    console.log(`Generated ${filePath} (${payload.length} chars)`);
+    await QRCode.toFile(filePath, payload, { ...BASE_OPTS, width });
+    console.log(`Generated ${filePath} (${payload.length} chars, ${width}px, EC:L)`);
   }
 }
 
