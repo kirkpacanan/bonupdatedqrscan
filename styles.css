@@ -119,6 +119,31 @@ button:disabled {
   margin-bottom: 8px;
 }
 
+.search-logid-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.search-logid-row label {
+  font-weight: 500;
+  color: #475569;
+}
+
+.search-logid-row input {
+  width: 120px;
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.search-logid-row input:focus {
+  outline: none;
+  border-color: #2563eb;
+}
+
 .upload-row {
   display: flex;
   align-items: center;
@@ -261,6 +286,12 @@ button:disabled {
 .results-content pre.results-placeholder {
   color: #64748b;
   font-style: italic;
+}
+
+.results-content pre.logid-search-result {
+  color: #22c55e;
+  font-weight: 600;
+  margin-bottom: 8px;
 }
 
 .results-content .csv-warn {

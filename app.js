@@ -7,6 +7,7 @@ const statusEl = document.getElementById("status");
 const csvResultsEl = document.getElementById("csvResults");
 const benchmarkResultsEl = document.getElementById("benchmarkResults");
 const searchInput = document.getElementById("searchInput");
+const logIdToFindInput = document.getElementById("logIdToFind");
 const startBtn = document.getElementById("startBtn");
 const stopBtn = document.getElementById("stopBtn");
 const qrFileInput = document.getElementById("qrFileInput");
@@ -23,6 +24,8 @@ let lastScan = 0;
 let lastScannedDataset = null;
 let lastScannedLabel = null;
 let lastBenchmarkLines = null;
+// Result of "log ID to find" check after scan (shown above benchmark)
+let lastLogIdSearchResult = null;
 // Full CSV data: log_id -> full row (all columns), for displaying actual dataset from CSV
 let csvRecordsByLogId = new Map();
 let csvHeaders = [];
@@ -262,13 +265,18 @@ function renderResults() {
     }
   }
   if (benchmarkResultsEl) {
-    if (lastBenchmarkLines && lastBenchmarkLines.length) {
-      benchmarkResultsEl.innerHTML = "<pre>" + escapeHtml(lastBenchmarkLines.join("\n")) + "</pre>";
-    } else if (lastScannedDataset && activeBenchmark) {
-      benchmarkResultsEl.innerHTML = "<pre>Running benchmark...</pre>";
-    } else {
-      benchmarkResultsEl.innerHTML = "<pre class=\"results-placeholder\">Benchmark results will appear here after scanning a QR.</pre>";
+    let benchHtml = "";
+    if (lastLogIdSearchResult) {
+      benchHtml += "<pre class=\"logid-search-result\">" + escapeHtml(lastLogIdSearchResult) + "</pre>";
     }
+    if (lastBenchmarkLines && lastBenchmarkLines.length) {
+      benchHtml += "<pre>" + escapeHtml(lastBenchmarkLines.join("\n")) + "</pre>";
+    } else if (lastScannedDataset && activeBenchmark) {
+      benchHtml += "<pre>Running benchmark...</pre>";
+    } else if (!lastLogIdSearchResult) {
+      benchHtml += "<pre class=\"results-placeholder\">Benchmark results will appear here after scanning a QR.</pre>";
+    }
+    benchmarkResultsEl.innerHTML = benchHtml || "<pre></pre>";
   }
 }
 
@@ -292,9 +300,25 @@ function handleScan(data) {
     activeBenchmark = true;
     lastScannedDataset = parsed.dataset;
     lastScannedLabel = parsed.label;
-    statusEl.textContent = `QR scanned: ${parsed.label} (${parsed.dataset.length} rows). Running benchmark...`;
-    stopCamera();
     lastBenchmarkLines = null;
+
+    // Optional: check if user's "Log ID to find" is in the scanned dataset
+    const logIdStr = logIdToFindInput && logIdToFindInput.value.trim();
+    if (logIdStr) {
+      const logIdNum = parseInt(logIdStr, 10);
+      const found = !isNaN(logIdNum) && parsed.dataset.some((r) => Number(r.log_id) === logIdNum);
+      lastLogIdSearchResult = found
+        ? "Log ID " + logIdStr + ": found in dataset."
+        : "Log ID " + logIdStr + ": not in dataset.";
+      if (searchInput) searchInput.value = logIdStr;
+    } else {
+      lastLogIdSearchResult = null;
+    }
+
+    statusEl.textContent = lastLogIdSearchResult
+      ? lastLogIdSearchResult + " Running benchmark..."
+      : "QR scanned: " + parsed.label + " (" + parsed.dataset.length + " rows). Running benchmark...";
+    stopCamera();
     renderResults();
     worker.postMessage({ type: "benchmark", payload: { dataset: parsed.dataset, label: parsed.label } });
     return;
