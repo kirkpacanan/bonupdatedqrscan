@@ -77,20 +77,11 @@ self.onmessage = (event) => {
     ["Brute Force", bruteForceSearch],
   ];
 
-  const lines = [
-    `Dataset Size: ${label} (${dataset.length})`,
-    `Queries: ${queries.length} (50% hits, 50% misses)`,
-    `Benchmark (${WARMUP_RUNS} warm-up + ${TIMED_RUNS} timed runs, avg ms):`,
-    "",
-  ];
-
+  const results = [];
   let verificationSum = 0;
+
   for (const [name, fn] of algorithms) {
-    // Warm-up: run without timing so JIT compiles and caches (accurate timing)
-    for (let w = 0; w < WARMUP_RUNS; w++) {
-      verificationSum += fn(dataset, queries);
-    }
-    // Timed runs; capture result so engine cannot dead-code eliminate the work
+    for (let w = 0; w < WARMUP_RUNS; w++) verificationSum += fn(dataset, queries);
     const times = [];
     for (let i = 0; i < TIMED_RUNS; i++) {
       const { timeMs, result } = timeRun(fn, dataset, queries);
@@ -98,12 +89,24 @@ self.onmessage = (event) => {
       verificationSum += result;
     }
     const avg = times.reduce((a, b) => a + b, 0) / times.length;
-    const min = Math.min(...times);
-    const max = Math.max(...times);
-    lines.push(`${name}: ${avg.toFixed(4)} ms (min: ${min.toFixed(4)}, max: ${max.toFixed(4)})`);
+    results.push({
+      name,
+      avgMs: avg,
+      minMs: Math.min(...times),
+      maxMs: Math.max(...times),
+    });
   }
-  lines.push("");
-  lines.push(`Verification: all algorithms returned same match count (sum=${verificationSum}).`);
 
-  self.postMessage({ type: "results", payload: { lines } });
+  self.postMessage({
+    type: "results",
+    payload: {
+      datasetLabel: label,
+      datasetLength: dataset.length,
+      queriesCount: queries.length,
+      warmupRuns: WARMUP_RUNS,
+      timedRuns: TIMED_RUNS,
+      algorithms: results,
+      verificationSum,
+    },
+  });
 };

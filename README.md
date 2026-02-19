@@ -16,8 +16,12 @@ This benchmark compares three algorithms using the same dataset sizes, the same 
 - Small and Medium QRs store the log_id list; Large uses a short `RANGE:1-1000` payload so one QR stays easy to scan.
 - Deterministic QR payloads ensure the same datasets and queries across runs.
 - Each dataset has 100 QR queries.
-- By default, inputs are actual QR images (PNG bytes), not just strings.
-- Timing uses `time.perf_counter()` and averages 10 runs per algorithm in milliseconds (4 decimal places).
+- Timing uses 10 timed runs per algorithm; results are shown in ms (avg, min, max).
+
+## Benchmark vs CSV (important)
+- **The benchmark uses only the dataset decoded from the QR.** It does not use `sampleData.csv` at all.
+- **The benchmark results are the same** whether or not the CSV is loaded. With no local CSV (e.g. file:// or CSV missing), you still get the same timing numbers; only the "Dataset from CSV" table below would show just log_ids instead of full rows.
+- **sampleData.csv** is optional and used only to display full row details (guest_name, unit_number, etc.) in the dataset table. For benchmark accuracy you only need the QR.
 
 ## Run
 ```bash
@@ -25,7 +29,8 @@ python benchmark.py
 ```
 
 ## Web QR Scanner Benchmark
-Run a **local server** so `sampleData.csv` can load (required for full dataset table with all columns). Then open the app, allow camera access, and scan a QR code.
+1. **To see benchmark results:** Scan any of the 3 QRs (or upload an image). The "Benchmark results" panel shows timings in ms. A note there confirms the dataset used is from the QR only.
+2. **Optional — full table:** Run a local server so `sampleData.csv` loads and the "Dataset from CSV" table shows all columns (otherwise only log_id is shown there; benchmark is unchanged).
 
 ```bash
 npx serve .

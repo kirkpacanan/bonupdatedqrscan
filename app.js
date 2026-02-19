@@ -23,7 +23,7 @@ let lastScan = 0;
 // Last scanned dataset and benchmark output (for re-render on search)
 let lastScannedDataset = null;
 let lastScannedLabel = null;
-let lastBenchmarkLines = null;
+let lastBenchmarkPayload = null; // { datasetLabel, datasetLength, algorithms: [{ name, avgMs, minMs, maxMs }], ... }
 // Result of "log ID to find" check after scan (shown above benchmark)
 let lastLogIdSearchResult = null;
 // Full CSV data: log_id -> full row (all columns), for displaying actual dataset from CSV
@@ -267,23 +267,33 @@ function renderResults() {
   if (benchmarkResultsEl) {
     let benchHtml = "";
     if (lastLogIdSearchResult) {
-      benchHtml += "<pre class=\"logid-search-result\">" + escapeHtml(lastLogIdSearchResult) + "</pre>";
+      benchHtml += "<div class=\"benchmark-logid-result\">" + escapeHtml(lastLogIdSearchResult) + "</div>";
     }
-    if (lastBenchmarkLines && lastBenchmarkLines.length) {
-      benchHtml += "<pre>" + escapeHtml(lastBenchmarkLines.join("\n")) + "</pre>";
+    if (lastBenchmarkPayload) {
+      const p = lastBenchmarkPayload;
+      benchHtml += "<div class=\"benchmark-panel\">";
+      benchHtml += "<p class=\"benchmark-meta\">Dataset: <strong>" + escapeHtml(p.datasetLabel) + "</strong> (" + p.datasetLength + " rows) · " + p.queriesCount + " queries (50% hits, 50% misses)</p>";
+      benchHtml += "<p class=\"benchmark-note\">Data from scanned QR only. " + p.warmupRuns + " warm-up + " + p.timedRuns + " timed runs.</p>";
+      benchHtml += "<table class=\"benchmark-table\"><thead><tr><th>Algorithm</th><th>Avg (ms)</th><th>Min</th><th>Max</th></tr></thead><tbody>";
+      p.algorithms.forEach((a) => {
+        benchHtml += "<tr><td>" + escapeHtml(a.name) + "</td><td class=\"benchmark-avg\">" + a.avgMs.toFixed(4) + "</td><td>" + a.minMs.toFixed(4) + "</td><td>" + a.maxMs.toFixed(4) + "</td></tr>";
+      });
+      benchHtml += "</tbody></table>";
+      benchHtml += "<p class=\"benchmark-footer\">All algorithms returned the same match count.</p>";
+      benchHtml += "</div>";
     } else if (lastScannedDataset && activeBenchmark) {
-      benchHtml += "<pre>Running benchmark...</pre>";
+      benchHtml += "<div class=\"benchmark-panel\"><p class=\"benchmark-meta\">Running benchmark…</p></div>";
     } else if (!lastLogIdSearchResult) {
-      benchHtml += "<pre class=\"results-placeholder\">Benchmark results will appear here after scanning a QR.</pre>";
+      benchHtml += "<p class=\"results-placeholder\">Scan a QR code to see benchmark results here.</p>";
     }
-    benchmarkResultsEl.innerHTML = benchHtml || "<pre></pre>";
+    benchmarkResultsEl.innerHTML = benchHtml || "";
   }
 }
 
 worker.onmessage = (e) => {
   const { type, payload } = e.data;
   if (type === "results") {
-    lastBenchmarkLines = payload.lines;
+    lastBenchmarkPayload = payload;
     renderResults();
     statusEl.textContent = "Benchmark complete!";
     activeBenchmark = false;
@@ -300,7 +310,7 @@ function handleScan(data) {
     activeBenchmark = true;
     lastScannedDataset = parsed.dataset;
     lastScannedLabel = parsed.label;
-    lastBenchmarkLines = null;
+    lastBenchmarkPayload = null;
 
     // Optional: check if user's "Log ID to find" is in the scanned dataset
     const logIdStr = logIdToFindInput && logIdToFindInput.value.trim();

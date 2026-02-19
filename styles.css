@@ -288,10 +288,58 @@ button:disabled {
   font-style: italic;
 }
 
-.results-content pre.logid-search-result {
+.results-content .benchmark-logid-result {
   color: #22c55e;
   font-weight: 600;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
+  padding: 8px 0;
+}
+
+.results-content .benchmark-panel {
+  margin-top: 4px;
+}
+
+.results-content .benchmark-meta {
+  margin: 0 0 6px 0;
+  font-size: 14px;
+  color: #e2e8f0;
+}
+
+.results-content .benchmark-note {
+  margin: 0 0 12px 0;
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.results-content .benchmark-table {
+  width: 100%;
+  max-width: 420px;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+
+.results-content .benchmark-table th,
+.results-content .benchmark-table td {
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid #334155;
+}
+
+.results-content .benchmark-table th {
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.results-content .benchmark-table .benchmark-avg {
+  font-weight: 600;
+  color: #38bdf8;
+}
+
+.results-content .benchmark-footer {
+  margin: 0;
+  font-size: 11px;
+  color: #64748b;
 }
 
 .results-content .csv-warn {
