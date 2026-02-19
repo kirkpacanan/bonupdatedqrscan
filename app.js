@@ -271,20 +271,15 @@ function renderResults() {
     }
     if (lastBenchmarkPayload) {
       const p = lastBenchmarkPayload;
-      function formatTime(ms) {
-        if (ms < 0.001) return (ms * 1000).toFixed(2) + " µs";
-        if (ms < 1) return ms.toFixed(4) + " ms";
-        return ms.toFixed(2) + " ms";
-      }
       benchHtml += "<div class=\"benchmark-panel\">";
       benchHtml += "<p class=\"benchmark-meta\">Dataset: <strong>" + escapeHtml(p.datasetLabel) + "</strong> (" + p.datasetLength + " rows) · " + p.queriesCount + " queries (50% hits, 50% misses)</p>";
-      benchHtml += "<p class=\"benchmark-note\">Data from scanned QR only. Times under 1 ms shown in microseconds (µs) so you can see real differences. " + p.warmupRuns + " warm-up + " + p.timedRuns + " timed runs.</p>";
-      benchHtml += "<table class=\"benchmark-table\"><thead><tr><th>Algorithm</th><th>Avg</th><th>Min</th><th>Max</th></tr></thead><tbody>";
+      benchHtml += "<p class=\"benchmark-note\">Data from scanned QR only. " + p.warmupRuns + " warm-up + " + p.timedRuns + " timed runs.</p>";
+      benchHtml += "<table class=\"benchmark-table\"><thead><tr><th>Algorithm</th><th>Avg (ms)</th><th>Min</th><th>Max</th></tr></thead><tbody>";
       p.algorithms.forEach((a) => {
-        benchHtml += "<tr><td>" + escapeHtml(a.name) + "</td><td class=\"benchmark-avg\">" + formatTime(a.avgMs) + "</td><td>" + formatTime(a.minMs) + "</td><td>" + formatTime(a.maxMs) + "</td></tr>";
+        benchHtml += "<tr><td>" + escapeHtml(a.name) + "</td><td class=\"benchmark-avg\">" + a.avgMs.toFixed(4) + "</td><td>" + a.minMs.toFixed(4) + "</td><td>" + a.maxMs.toFixed(4) + "</td></tr>";
       });
       benchHtml += "</tbody></table>";
-      benchHtml += "<p class=\"benchmark-footer\">All algorithms returned the same match count. Yes, lookups on small datasets are this fast (sub‑millisecond).</p>";
+      benchHtml += "<p class=\"benchmark-footer\">All algorithms returned the same match count.</p>";
       benchHtml += "</div>";
     } else if (lastScannedDataset && activeBenchmark) {
       benchHtml += "<div class=\"benchmark-panel\"><p class=\"benchmark-meta\">Running benchmark…</p></div>";
