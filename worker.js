@@ -1,6 +1,6 @@
 // expects dataset = [{ log_id: 1, ...}, ...]
-// 100 queries: 50 hits (from dataset), 50 misses (ids not in dataset) — same as Python benchmark
-function buildQueries(dataset, count = 100) {
+// 1000 queries: 500 hits (from dataset), 500 misses (ids not in dataset) — same as Python benchmark
+function buildQueries(dataset, count = 1000) {
   const half = Math.floor(count / 2);
   const hits = dataset.slice(0, half).map((r) => ({ log_id: r.log_id }));
   let fakeId = Math.max(...dataset.map((r) => r.log_id)) + 1;

@@ -6,7 +6,7 @@ from typing import Callable, Dict, List
 CSV_FILE = "sampleData.csv"
 SIZES = {"Small": 10, "Medium": 100, "Large": 1000}
 RUNS = 10
-NUM_QUERIES = 100
+NUM_QUERIES = 1000
 
 # Load CSV
 df = pd.read_csv(CSV_FILE)
