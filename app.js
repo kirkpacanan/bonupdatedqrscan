@@ -26,6 +26,8 @@ let lastScannedLabel = null;
 let lastBenchmarkPayload = null; // { datasetLabel, datasetLength, algorithms: [{ name, avgMs, minMs, maxMs }], ... }
 // Result of "log ID to find" check after scan (shown above benchmark)
 let lastLogIdSearchResult = null;
+// When true, next render highlights only the row with log_id === search (used after "Log ID to find" auto-fill)
+let searchExactLogIdOnce = false;
 // Full CSV data: log_id -> full row (all columns), for displaying actual dataset from CSV
 let csvRecordsByLogId = new Map();
 let csvHeaders = [];
@@ -211,12 +213,13 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-function rowMatchesSearch(row, searchTerm, logIdForRow) {
+// Match row: exact log_id only when searchExactLogIdOnce is set (after "Log ID to find"); else search any column (substring).
+function rowMatchesSearch(row, searchTerm, logIdForRow, exactLogIdOnly) {
   if (!searchTerm || !row) return false;
   const q = searchTerm.trim();
-  const qNum = parseInt(q, 10);
-  if (!isNaN(qNum) && String(qNum) === q) {
-    return Number(logIdForRow) === qNum;
+  if (exactLogIdOnly) {
+    const qNum = parseInt(q, 10);
+    return !isNaN(qNum) && Number(logIdForRow) === qNum;
   }
   const qLower = q.toLowerCase();
   for (const key of Object.keys(row)) {
@@ -227,11 +230,13 @@ function rowMatchesSearch(row, searchTerm, logIdForRow) {
 
 function buildDatasetHtml(dataset, searchTerm) {
   const q = (searchTerm || "").trim();
+  const exactOnce = searchExactLogIdOnce && /^\d+$/.test(q);
+  if (exactOnce) searchExactLogIdOnce = false;
   const headers = csvHeaders.length >= ALL_CSV_COLUMNS.length ? csvHeaders : ALL_CSV_COLUMNS;
   const rows = dataset.map((r) => {
     const logId = Number(r.log_id);
     const full = csvRecordsByLogId.get(logId) || csvRecordsByLogId.get(r.log_id) || r;
-    return { row: full, match: q && rowMatchesSearch(full, searchTerm, logId) };
+    return { row: full, match: q && rowMatchesSearch(full, searchTerm, logId, exactOnce) };
   });
 
   let html = '<div class="dataset-table-wrap"><table class="dataset-table"><thead><tr>';
@@ -325,7 +330,10 @@ function handleScan(data) {
       lastLogIdSearchResult = found
         ? "Log ID " + logIdStr + ": found in dataset."
         : "Log ID " + logIdStr + ": not in dataset.";
-      if (searchInput) searchInput.value = logIdStr;
+      if (searchInput) {
+        searchInput.value = logIdStr;
+        searchExactLogIdOnce = true;
+      }
     } else {
       lastLogIdSearchResult = null;
     }
