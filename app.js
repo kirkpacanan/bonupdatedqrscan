@@ -5,6 +5,7 @@ const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 const statusEl = document.getElementById("status");
 const resultsEl = document.getElementById("results");
+const searchInput = document.getElementById("searchInput");
 const startBtn = document.getElementById("startBtn");
 const stopBtn = document.getElementById("stopBtn");
 
@@ -16,29 +17,12 @@ let stream = null;
 let scanning = false;
 let lastScan = 0;
 
-// ------------------------
-// Load CSV dataset
-// ------------------------
-let allRecords = []; // global dataset
-
-fetch("sampleData.csv")
-  .then(res => res.text())
-  .then(text => {
-    const rows = text.trim().split("\n");
-    const headers = rows.shift().split(",");
-    allRecords = rows.map(row => {
-      const values = row.split(",");
-      const obj = {};
-      headers.forEach((h, i) => (obj[h] = values[i]));
-      obj.log_id = parseInt(obj.log_id); // make log_id number
-      return obj;
-    });
-    statusEl.textContent = "Dataset loaded!";
-  })
-  .catch(err => {
-    console.error(err);
-    statusEl.textContent = "Failed to load dataset.";
-  });
+// Pending multi-part QR (e.g. Large = 2 parts)
+let pendingParts = {};
+// Last scanned dataset and benchmark output (for re-render on search)
+let lastScannedDataset = null;
+let lastScannedLabel = null;
+let lastBenchmarkLines = null;
 
 // ------------------------
 // Camera functions
@@ -65,7 +49,7 @@ async function startCamera() {
 
 function stopCamera() {
   if (stream) {
-    stream.getTracks().forEach(t => t.stop());
+    stream.getTracks().forEach((t) => t.stop());
   }
   scanning = false;
   startBtn.disabled = false;
@@ -103,42 +87,129 @@ function scanFrame(timestamp) {
 }
 
 // ------------------------
+// Parse DS: payload and return { label, dataset } or null if multi-part (then caller accumulates)
+// ------------------------
+function parseDSPayload(data) {
+  if (!data || !data.startsWith("DS:")) return null;
+  const rest = data.slice(3);
+  const parts = rest.split(":");
+  if (parts.length < 2) return null;
+
+  const label = parts[0];
+  let ids;
+
+  if (parts.length === 2) {
+    // DS:Small:[1,2,...] or DS:Medium:[...]
+    try {
+      ids = JSON.parse(parts[1]);
+    } catch {
+      return null;
+    }
+    return { label, dataset: ids.map((id) => ({ log_id: id })) };
+  }
+
+  if (parts.length >= 4) {
+    // DS:Large:1:2:[...]
+    const partIndex = parseInt(parts[1], 10);
+    const totalParts = parseInt(parts[2], 10);
+    const jsonStr = parts.slice(3).join(":");
+    try {
+      ids = JSON.parse(jsonStr);
+    } catch {
+      return null;
+    }
+    if (!pendingParts[label]) {
+      pendingParts[label] = { parts: {}, total: totalParts };
+    }
+    pendingParts[label].parts[partIndex] = ids;
+    const collected = pendingParts[label].parts;
+    if (Object.keys(collected).length === totalParts) {
+      const merged = [];
+      for (let i = 1; i <= totalParts; i++) merged.push(...collected[i]);
+      delete pendingParts[label];
+      return { label, dataset: merged.map((id) => ({ log_id: id })) };
+    }
+    return null; // need to scan the other part(s)
+  }
+
+  return null;
+}
+
+// ------------------------
 // Handle QR data
 // ------------------------
 let activeBenchmark = false;
 const worker = new Worker("worker.js");
 
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function buildDatasetHtml(dataset, searchTerm) {
+  const ids = dataset.map((r) => r.log_id);
+  const q = (searchTerm || "").trim().toLowerCase();
+  const parts = ids.map((id) => {
+    const s = String(id);
+    const match = q && s.toLowerCase().includes(q);
+    const safe = escapeHtml(s);
+    return match ? '<span class="highlight">' + safe + "</span>" : safe;
+  });
+  return parts.join(", ");
+}
+
+function renderResults() {
+  const searchTerm = searchInput ? searchInput.value : "";
+  let html = "";
+  if (lastScannedDataset && lastScannedLabel) {
+    html += '<div class="dataset-block">Dataset from QR (' + escapeHtml(lastScannedLabel) + ", " + lastScannedDataset.length + " rows):<br><span class=\"dataset-ids\">";
+    html += buildDatasetHtml(lastScannedDataset, searchTerm);
+    html += "</span></div>";
+  }
+  if (lastBenchmarkLines && lastBenchmarkLines.length) {
+    html += "<pre>" + escapeHtml(lastBenchmarkLines.join("\n")) + "</pre>";
+  } else if (lastScannedDataset && activeBenchmark) {
+    html += "<pre>Running benchmark...</pre>";
+  }
+  resultsEl.innerHTML = html || "<pre></pre>";
+}
+
 worker.onmessage = (e) => {
   const { type, payload } = e.data;
   if (type === "results") {
-    resultsEl.textContent = payload.lines.join("\n");
+    lastBenchmarkLines = payload.lines;
+    renderResults();
     statusEl.textContent = "Benchmark complete!";
     activeBenchmark = false;
   }
 };
 
 function handleScan(data) {
-  if (!data.startsWith("SIZE:")) {
-    statusEl.textContent = `Unknown QR code: ${data}`;
+  const parsed = parseDSPayload(data);
+  if (parsed) {
+    if (activeBenchmark) {
+      statusEl.textContent = "Benchmark already running...";
+      return;
+    }
+    activeBenchmark = true;
+    lastScannedDataset = parsed.dataset;
+    lastScannedLabel = parsed.label;
+    statusEl.textContent = `QR scanned: ${parsed.label} (${parsed.dataset.length} rows). Running benchmark...`;
+    stopCamera();
+    lastBenchmarkLines = null;
+    renderResults();
+    worker.postMessage({ type: "benchmark", payload: { dataset: parsed.dataset, label: parsed.label } });
     return;
   }
-  const sizeLabel = data.replace("SIZE:", "");
-  const size = { Small: 10, Medium: 100, Large: 1000 }[sizeLabel];
-  if (!size) return;
 
-  if (activeBenchmark) {
-    statusEl.textContent = "Benchmark already running...";
+  // Multi-part: we stored one part and returned null; prompt for the other
+  if (data.startsWith("DS:") && Object.keys(pendingParts).length > 0) {
+    statusEl.textContent = "Large: scan the other part (1/2 or 2/2) to run benchmark.";
     return;
   }
 
-  activeBenchmark = true;
-  statusEl.textContent = `QR scanned: ${sizeLabel}. Running benchmark...`;
-  stopCamera(); // stop camera while running benchmark
-
-  // slice dataset according to scanned QR
-  const dataset = allRecords.slice(0, size).map(r => ({ log_id: r.log_id }));
-
-  worker.postMessage({ type: "benchmark", payload: { dataset, label: sizeLabel } });
+  statusEl.textContent = `Unknown QR: ${data.slice(0, 50)}${data.length > 50 ? "…" : ""}`;
 }
 
 // ------------------------
@@ -146,3 +217,6 @@ function handleScan(data) {
 // ------------------------
 startBtn.addEventListener("click", startCamera);
 stopBtn.addEventListener("click", stopCamera);
+if (searchInput) {
+  searchInput.addEventListener("input", renderResults);
+}

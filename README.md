@@ -7,12 +7,13 @@ This benchmark compares three algorithms using the same dataset sizes, the same 
 - Linear Search (early exit on match)
 - Brute Force (full scan, no early exit)
 
-## Dataset Sizes
-- Small: 100
-- Medium: 1,000
-- Large: 10,000
+## Dataset Sizes (encoded in the QR)
+- **Small:** 10 rows of dataset (one QR)
+- **Medium:** 100 rows (one QR)
+- **Large:** 1,000 rows (two QRs: scan part 1/2 then part 2/2 to run)
 
 ## How It Works
+- The dataset (log_id list) is stored inside each QR code. Small and Medium use a single QR; Large uses two QRs (500 rows each) due to QR size limits.
 - Deterministic QR payloads ensure the same datasets and queries across runs.
 - Each dataset has 100 QR queries.
 - By default, inputs are actual QR images (PNG bytes), not just strings.
@@ -34,7 +35,7 @@ open index.html
 ```
 
 ## PNG QR Codes
-Generate PNG files for the three sizes and save them under `qr/`.
+Generate PNG files with dataset payloads (Small, Medium, Large part 1, Large part 2) under `qr/`.
 
 ```bash
 node generate_qr_pngs.js

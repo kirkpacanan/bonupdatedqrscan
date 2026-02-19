@@ -57,7 +57,11 @@ self.onmessage = (event) => {
     ["Brute Force", bruteForceSearch],
   ];
 
-  const lines = [`Dataset Size: ${label} (${dataset.length})`];
+  const lines = [
+    `Dataset Size: ${label} (${dataset.length})`,
+    "Benchmark (avg of 10 runs, time in ms):",
+    "",
+  ];
   for (const [name, fn] of algorithms) {
     const times = [];
     for (let i = 0; i < 10; i++) times.push(timeRun(fn, dataset, queries));
