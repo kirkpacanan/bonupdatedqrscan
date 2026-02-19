@@ -7,13 +7,13 @@ This benchmark compares three algorithms using the same dataset sizes, the same 
 - Linear Search (early exit on match)
 - Brute Force (full scan, no early exit)
 
-## Dataset Sizes (encoded in the QR)
-- **Small:** 10 rows of dataset (one QR)
+## Dataset Sizes (3 QRs only)
+- **Small:** 10 rows (one QR)
 - **Medium:** 100 rows (one QR)
-- **Large:** 1,000 rows (two QRs: scan part 1/2 then part 2/2 to run)
+- **Large:** 1,000 rows (one QR, compact RANGE payload so it stays scannable)
 
 ## How It Works
-- The dataset (log_id list) is stored inside each QR code. Small and Medium use a single QR; Large uses two QRs (500 rows each) due to QR size limits.
+- Small and Medium QRs store the log_id list; Large uses a short `RANGE:1-1000` payload so one QR stays easy to scan.
 - Deterministic QR payloads ensure the same datasets and queries across runs.
 - Each dataset has 100 QR queries.
 - By default, inputs are actual QR images (PNG bytes), not just strings.
@@ -25,17 +25,18 @@ python benchmark.py
 ```
 
 ## Web QR Scanner Benchmark
-Open `index.html` in a browser (Chrome recommended). Allow camera access, then scan
-any QR code shown on the page. Each code triggers a benchmark with the matching
-dataset size.
+Run a **local server** so `sampleData.csv` can load (required for full dataset table with all columns). Then open the app, allow camera access, and scan a QR code.
 
 ```bash
-# macOS quick open
-open index.html
+npx serve .
+# or: python -m http.server 8000
+# Then open http://localhost:3000 (or :8000)
 ```
 
+If you open `index.html` directly (file://), the CSV won't load and only log_id will show in the dataset table.
+
 ## PNG QR Codes
-Generate PNG files with dataset payloads (Small, Medium, Large part 1, Large part 2) under `qr/`.
+Generate 3 PNG files (Small, Medium, Large) under `qr/`.
 
 ```bash
 node generate_qr_pngs.js

@@ -21,16 +21,26 @@
       <button id="startBtn">Start Camera</button>
       <button id="stopBtn" disabled>Stop Camera</button>
 
-      <div id="status">Start camera and scan a QR code.</div>
+      <div class="upload-row">
+        <label for="qrFileInput">Or upload QR image:</label>
+        <input type="file" id="qrFileInput" accept="image/*" />
+      </div>
+
+      <div id="status">Loading CSV...</div>
     </section>
 
     <section class="panel">
-      <h2>Results</h2>
+      <h2>Benchmark results</h2>
+      <div id="benchmarkResults" class="results-content"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Dataset from CSV</h2>
       <div class="search-row">
         <label for="searchInput">Search in dataset:</label>
         <input type="text" id="searchInput" placeholder="e.g. 5 or 12" />
       </div>
-      <div id="results" class="results-content"></div>
+      <div id="csvResults" class="results-content"></div>
     </section>
   </main>
 

@@ -4,10 +4,12 @@
 const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 const statusEl = document.getElementById("status");
-const resultsEl = document.getElementById("results");
+const csvResultsEl = document.getElementById("csvResults");
+const benchmarkResultsEl = document.getElementById("benchmarkResults");
 const searchInput = document.getElementById("searchInput");
 const startBtn = document.getElementById("startBtn");
 const stopBtn = document.getElementById("stopBtn");
+const qrFileInput = document.getElementById("qrFileInput");
 
 // ------------------------
 // Config
@@ -17,12 +19,20 @@ let stream = null;
 let scanning = false;
 let lastScan = 0;
 
-// Pending multi-part QR (e.g. Large = 2 parts)
-let pendingParts = {};
 // Last scanned dataset and benchmark output (for re-render on search)
 let lastScannedDataset = null;
 let lastScannedLabel = null;
 let lastBenchmarkLines = null;
+// Full CSV data: log_id -> full row (all columns), for displaying actual dataset from CSV
+let csvRecordsByLogId = new Map();
+let csvHeaders = [];
+// All columns to show (so we never show only log_id); must match sampleData.csv header row
+const ALL_CSV_COLUMNS = [
+  "log_id", "qr_id", "authorization_id", "guest_id", "guest_name", "unit_id", "unit_number",
+  "frontdesk_id", "frontdesk_name", "action_type", "scanned_at", "result_status",
+  "has_authorization_form", "has_luggage", "luggage_count", "luggage_desc", "companions_count",
+  "vehicle_plate_no", "remarks"
+];
 
 // ------------------------
 // Camera functions
@@ -87,7 +97,66 @@ function scanFrame(timestamp) {
 }
 
 // ------------------------
-// Parse DS: payload and return { label, dataset } or null if multi-part (then caller accumulates)
+// Upload QR image and decode (fallback when camera won't scan)
+// ------------------------
+function decodeQRFromImageData(imageData, width, height) {
+  return jsQR(imageData.data, width, height);
+}
+
+function processUploadedImage(file) {
+  if (!file || !file.type.startsWith("image/")) {
+    statusEl.textContent = "Please choose an image file (e.g. PNG, JPG).";
+    return;
+  }
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    URL.revokeObjectURL(url);
+    const naturalW = img.width;
+    const naturalH = img.height;
+    const maxDim = 1200;
+    let w = naturalW;
+    let h = naturalH;
+    if (w > maxDim || h > maxDim) {
+      if (w > h) {
+        h = Math.round((h * maxDim) / w);
+        w = maxDim;
+      } else {
+        w = Math.round((w * maxDim) / h);
+        h = maxDim;
+      }
+    }
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(img, 0, 0, w, h);
+    let imageData = ctx.getImageData(0, 0, w, h);
+    let code = decodeQRFromImageData(imageData, w, h);
+    if (!code && (w !== naturalW || h !== naturalH)) {
+      canvas.width = naturalW;
+      canvas.height = naturalH;
+      ctx.drawImage(img, 0, 0, naturalW, naturalH);
+      imageData = ctx.getImageData(0, 0, naturalW, naturalH);
+      code = decodeQRFromImageData(imageData, naturalW, naturalH);
+    }
+    if (code && code.data) {
+      statusEl.textContent = "QR decoded from image.";
+      handleScan(code.data.trim());
+    } else {
+      statusEl.textContent = "No QR code found in this image. Try another photo.";
+    }
+    qrFileInput.value = "";
+  };
+  img.onerror = () => {
+    URL.revokeObjectURL(url);
+    statusEl.textContent = "Could not load image.";
+    qrFileInput.value = "";
+  };
+  img.src = url;
+}
+
+// ------------------------
+// Parse DS: payload — Small/Medium = JSON array of ids, Large = RANGE:1-1000 (one QR only)
 // ------------------------
 function parseDSPayload(data) {
   if (!data || !data.startsWith("DS:")) return null;
@@ -96,40 +165,32 @@ function parseDSPayload(data) {
   if (parts.length < 2) return null;
 
   const label = parts[0];
-  let ids;
 
+  // DS:Large:RANGE:1-1000 — compact, one scannable QR for 1000 rows
+  if (label === "Large" && parts[1] === "RANGE" && parts[2]) {
+    const rangeMatch = parts[2].match(/^(\d+)-(\d+)$/);
+    if (rangeMatch) {
+      const start = parseInt(rangeMatch[1], 10);
+      const end = parseInt(rangeMatch[2], 10);
+      if (!isNaN(start) && !isNaN(end) && start <= end && end - start + 1 <= 10000) {
+        const dataset = [];
+        for (let i = start; i <= end; i++) dataset.push({ log_id: i });
+        return { label, dataset };
+      }
+    }
+  }
+
+  // DS:Small:[1,2,...] or DS:Medium:[1,...,100]
   if (parts.length === 2) {
-    // DS:Small:[1,2,...] or DS:Medium:[...]
+    let ids;
     try {
       ids = JSON.parse(parts[1]);
     } catch {
       return null;
     }
-    return { label, dataset: ids.map((id) => ({ log_id: id })) };
-  }
-
-  if (parts.length >= 4) {
-    // DS:Large:1:2:[...]
-    const partIndex = parseInt(parts[1], 10);
-    const totalParts = parseInt(parts[2], 10);
-    const jsonStr = parts.slice(3).join(":");
-    try {
-      ids = JSON.parse(jsonStr);
-    } catch {
-      return null;
+    if (Array.isArray(ids)) {
+      return { label, dataset: ids.map((id) => ({ log_id: id })) };
     }
-    if (!pendingParts[label]) {
-      pendingParts[label] = { parts: {}, total: totalParts };
-    }
-    pendingParts[label].parts[partIndex] = ids;
-    const collected = pendingParts[label].parts;
-    if (Object.keys(collected).length === totalParts) {
-      const merged = [];
-      for (let i = 1; i <= totalParts; i++) merged.push(...collected[i]);
-      delete pendingParts[label];
-      return { label, dataset: merged.map((id) => ({ log_id: id })) };
-    }
-    return null; // need to scan the other part(s)
   }
 
   return null;
@@ -147,32 +208,68 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+function rowMatchesSearch(row, searchTerm) {
+  if (!searchTerm || !row) return false;
+  const q = searchTerm.trim().toLowerCase();
+  for (const key of Object.keys(row)) {
+    if (String(row[key]).toLowerCase().includes(q)) return true;
+  }
+  return false;
+}
+
 function buildDatasetHtml(dataset, searchTerm) {
-  const ids = dataset.map((r) => r.log_id);
   const q = (searchTerm || "").trim().toLowerCase();
-  const parts = ids.map((id) => {
-    const s = String(id);
-    const match = q && s.toLowerCase().includes(q);
-    const safe = escapeHtml(s);
-    return match ? '<span class="highlight">' + safe + "</span>" : safe;
+  const headers = csvHeaders.length >= ALL_CSV_COLUMNS.length ? csvHeaders : ALL_CSV_COLUMNS;
+  const rows = dataset.map((r) => {
+    const logId = Number(r.log_id);
+    const full = csvRecordsByLogId.get(logId) || csvRecordsByLogId.get(r.log_id) || r;
+    return { row: full, match: q && rowMatchesSearch(full, searchTerm) };
   });
-  return parts.join(", ");
+
+  let html = '<div class="dataset-table-wrap"><table class="dataset-table"><thead><tr>';
+  headers.forEach((h) => {
+    html += "<th>" + escapeHtml(h) + "</th>";
+  });
+  html += "</tr></thead><tbody>";
+  rows.forEach(({ row, match }) => {
+    const trClass = match ? ' class="highlight-row"' : "";
+    html += "<tr" + trClass + ">";
+    headers.forEach((h) => {
+      const val = row[h] != null ? String(row[h]) : "";
+      html += "<td>" + escapeHtml(val) + "</td>";
+    });
+    html += "</tr>";
+  });
+  html += "</tbody></table></div>";
+  return html;
 }
 
 function renderResults() {
   const searchTerm = searchInput ? searchInput.value : "";
-  let html = "";
-  if (lastScannedDataset && lastScannedLabel) {
-    html += '<div class="dataset-block">Dataset from QR (' + escapeHtml(lastScannedLabel) + ", " + lastScannedDataset.length + " rows):<br><span class=\"dataset-ids\">";
-    html += buildDatasetHtml(lastScannedDataset, searchTerm);
-    html += "</span></div>";
+  if (csvResultsEl) {
+    if (lastScannedDataset && lastScannedLabel) {
+      const hasCsvData = csvRecordsByLogId.size > 0;
+      let html = '<div class="dataset-block">' + escapeHtml(lastScannedLabel) + " (" + lastScannedDataset.length + " rows)";
+      if (!hasCsvData) {
+        html += ' <span class="csv-warn">(CSV not loaded — run from a local server, e.g. <code>npx serve</code>)</span>';
+      }
+      html += "<br>";
+      html += buildDatasetHtml(lastScannedDataset, searchTerm);
+      html += "</div>";
+      csvResultsEl.innerHTML = html;
+    } else {
+      csvResultsEl.innerHTML = "<pre class=\"results-placeholder\">Scan a QR code to load dataset.</pre>";
+    }
   }
-  if (lastBenchmarkLines && lastBenchmarkLines.length) {
-    html += "<pre>" + escapeHtml(lastBenchmarkLines.join("\n")) + "</pre>";
-  } else if (lastScannedDataset && activeBenchmark) {
-    html += "<pre>Running benchmark...</pre>";
+  if (benchmarkResultsEl) {
+    if (lastBenchmarkLines && lastBenchmarkLines.length) {
+      benchmarkResultsEl.innerHTML = "<pre>" + escapeHtml(lastBenchmarkLines.join("\n")) + "</pre>";
+    } else if (lastScannedDataset && activeBenchmark) {
+      benchmarkResultsEl.innerHTML = "<pre>Running benchmark...</pre>";
+    } else {
+      benchmarkResultsEl.innerHTML = "<pre class=\"results-placeholder\">Benchmark results will appear here after scanning a QR.</pre>";
+    }
   }
-  resultsEl.innerHTML = html || "<pre></pre>";
 }
 
 worker.onmessage = (e) => {
@@ -203,12 +300,6 @@ function handleScan(data) {
     return;
   }
 
-  // Multi-part: we stored one part and returned null; prompt for the other
-  if (data.startsWith("DS:") && Object.keys(pendingParts).length > 0) {
-    statusEl.textContent = "Large: scan the other part (1/2 or 2/2) to run benchmark.";
-    return;
-  }
-
   statusEl.textContent = `Unknown QR: ${data.slice(0, 50)}${data.length > 50 ? "…" : ""}`;
 }
 
@@ -220,3 +311,63 @@ stopBtn.addEventListener("click", stopCamera);
 if (searchInput) {
   searchInput.addEventListener("input", renderResults);
 }
+if (qrFileInput) {
+  qrFileInput.addEventListener("change", (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (file) processUploadedImage(file);
+  });
+}
+
+function parseCSVLine(line) {
+  const out = [];
+  let cur = "";
+  let inQuotes = false;
+  const s = String(line).trim().replace(/\r$/, "");
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (c === '"') {
+      inQuotes = !inQuotes;
+    } else if (c === "," && !inQuotes) {
+      out.push(cur.trim());
+      cur = "";
+    } else {
+      cur += c;
+    }
+  }
+  out.push(cur.trim());
+  return out;
+}
+
+function loadCSV() {
+  fetch("sampleData.csv")
+    .then((res) => {
+      if (!res.ok) throw new Error("CSV not found");
+      return res.text();
+    })
+    .then((text) => {
+      const lines = text.trim().split(/\r?\n/).filter((l) => l.length > 0);
+      if (lines.length < 2) throw new Error("CSV has no data rows");
+      const headers = parseCSVLine(lines[0]);
+      csvHeaders = headers.slice();
+      for (let i = 1; i < lines.length; i++) {
+        const values = parseCSVLine(lines[i]);
+        const obj = {};
+        headers.forEach((h, idx) => {
+          const raw = values[idx];
+          obj[h] = raw != null ? String(raw).trim() : "";
+        });
+        const logId = parseInt(obj.log_id, 10);
+        if (!isNaN(logId)) csvRecordsByLogId.set(logId, obj);
+      }
+      if (statusEl && statusEl.textContent.startsWith("Loading")) {
+        statusEl.textContent = "Start camera and scan a QR code.";
+      }
+      if (lastScannedDataset) renderResults();
+    })
+    .catch((err) => {
+      console.error(err);
+      if (statusEl) statusEl.textContent = "CSV failed to load. Use a local server (e.g. npx serve) so sampleData.csv can load.";
+    });
+}
+
+loadCSV();

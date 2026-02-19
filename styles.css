@@ -119,6 +119,22 @@ button:disabled {
   margin-bottom: 8px;
 }
 
+.upload-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.upload-row label {
+  font-weight: 500;
+  color: #475569;
+}
+
+.upload-row input[type="file"] {
+  font-size: 14px;
+}
+
 .search-row {
   display: flex;
   align-items: center;
@@ -161,6 +177,68 @@ button:disabled {
   margin-bottom: 12px;
 }
 
+.results-content .dataset-table-wrap {
+  overflow-x: auto;
+  margin-top: 8px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.results-content .dataset-table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.results-content .dataset-table th,
+.results-content .dataset-table td {
+  border: 1px solid #334155;
+  padding: 6px 10px;
+  text-align: left;
+  white-space: nowrap;
+  min-width: 60px;
+}
+
+.results-content .dataset-table thead th {
+  background: #1e293b;
+  color: #94a3b8;
+  font-weight: 600;
+  position: sticky;
+  left: 0;
+  z-index: 1;
+}
+
+.results-content .dataset-table th:nth-child(1),
+.results-content .dataset-table td:nth-child(1) {
+  min-width: 52px;
+}
+.results-content .dataset-table th:nth-child(5),
+.results-content .dataset-table td:nth-child(5) {
+  min-width: 100px;
+}
+.results-content .dataset-table th:nth-child(9),
+.results-content .dataset-table td:nth-child(9) {
+  min-width: 90px;
+}
+.results-content .dataset-table th:nth-child(10),
+.results-content .dataset-table td:nth-child(10) {
+  min-width: 90px;
+}
+.results-content .dataset-table th:nth-child(11),
+.results-content .dataset-table td:nth-child(11) {
+  min-width: 140px;
+}
+.results-content .dataset-table th:last-child,
+.results-content .dataset-table td:last-child {
+  min-width: 120px;
+  white-space: normal;
+}
+
+.results-content .dataset-table tbody tr.highlight-row {
+  background: #fbbf24;
+  color: #1e293b;
+}
+
 .results-content .dataset-block .dataset-ids {
   display: inline;
   word-break: break-all;
@@ -178,6 +256,21 @@ button:disabled {
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.results-content pre.results-placeholder {
+  color: #64748b;
+  font-style: italic;
+}
+
+.results-content .csv-warn {
+  color: #fbbf24;
+  font-size: 11px;
+}
+.results-content .csv-warn code {
+  background: rgba(251, 191, 36, 0.2);
+  padding: 1px 4px;
+  border-radius: 3px;
 }
 
 .hidden {
