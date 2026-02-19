@@ -211,22 +211,27 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-function rowMatchesSearch(row, searchTerm) {
+function rowMatchesSearch(row, searchTerm, logIdForRow) {
   if (!searchTerm || !row) return false;
-  const q = searchTerm.trim().toLowerCase();
+  const q = searchTerm.trim();
+  const qNum = parseInt(q, 10);
+  if (!isNaN(qNum) && String(qNum) === q) {
+    return Number(logIdForRow) === qNum;
+  }
+  const qLower = q.toLowerCase();
   for (const key of Object.keys(row)) {
-    if (String(row[key]).toLowerCase().includes(q)) return true;
+    if (String(row[key]).toLowerCase().includes(qLower)) return true;
   }
   return false;
 }
 
 function buildDatasetHtml(dataset, searchTerm) {
-  const q = (searchTerm || "").trim().toLowerCase();
+  const q = (searchTerm || "").trim();
   const headers = csvHeaders.length >= ALL_CSV_COLUMNS.length ? csvHeaders : ALL_CSV_COLUMNS;
   const rows = dataset.map((r) => {
     const logId = Number(r.log_id);
     const full = csvRecordsByLogId.get(logId) || csvRecordsByLogId.get(r.log_id) || r;
-    return { row: full, match: q && rowMatchesSearch(full, searchTerm) };
+    return { row: full, match: q && rowMatchesSearch(full, searchTerm, logId) };
   });
 
   let html = '<div class="dataset-table-wrap"><table class="dataset-table"><thead><tr>';
