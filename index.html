@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>QR Benchmark</title>
+
+  <link rel="stylesheet" href="styles.css" />
+
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+</head>
+
+<body>
+  <main class="container">
+    <h1>QR Benchmark (Real Dataset)</h1>
+
+    <section class="panel">
+      <video id="video" playsinline></video>
+      <canvas id="canvas" class="hidden"></canvas>
+
+      <button id="startBtn">Start Camera</button>
+      <button id="stopBtn" disabled>Stop Camera</button>
+
+      <div id="status">Loading dataset...</div>
+    </section>
+
+    <section class="panel">
+      <h2>Select Dataset Size</h2>
+      <canvas id="qrSmall"></canvas>
+      <canvas id="qrMedium"></canvas>
+      <canvas id="qrLarge"></canvas>
+    </section>
+
+    <section class="panel">
+      <h2>Results</h2>
+      <pre id="results"></pre>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

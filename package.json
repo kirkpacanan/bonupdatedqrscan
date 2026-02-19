@@ -1,0 +1,24 @@
+{
+  "name": "weprogsa",
+  "version": "1.0.0",
+  "description": "This benchmark compares three algorithms using the same dataset sizes, the same QR query inputs, and the same timing method. Each test is run 5 times and averaged.",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kirkpacanan/weprogsa.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/kirkpacanan/weprogsa/issues"
+  },
+  "homepage": "https://github.com/kirkpacanan/weprogsa#readme",
+  "dependencies": {
+    "qrcode": "^1.5.4"
+  }
+}
