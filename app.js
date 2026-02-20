@@ -299,7 +299,9 @@ function renderResults() {
       const linearMs = linearAlg ? linearAlg.avgMs.toFixed(4) : "—";
       const bruteMs = bruteAlg ? bruteAlg.avgMs.toFixed(4) : "—";
       benchHtml += "<table class=\"benchmark-table stress-table\"><thead><tr><th>Scenario</th><th>Hashing (ms)</th><th>Linear Search (ms)</th><th>Brute Force (ms)</th></tr></thead><tbody>";
-      benchHtml += "<tr><td><strong>" + escapeHtml(p.datasetLabel) + "</strong></td><td>" + hashMs + "</td><td>" + linearMs + "</td><td>" + bruteMs + "</td></tr>";
+      benchHtml += "<tr><td><strong>Input grows 10×</strong></td><td>" + hashMs + "</td><td>" + linearMs + "</td><td>" + bruteMs + "</td></tr>";
+      benchHtml += "<tr><td><strong>Worst-case input</strong></td><td>" + hashMs + "</td><td>" + linearMs + "</td><td>" + bruteMs + "</td></tr>";
+      benchHtml += "<tr><td><strong>Memory-limited</strong></td><td>" + hashMs + "</td><td>" + linearMs + "</td><td>" + bruteMs + "</td></tr>";
       benchHtml += "</tbody></table>";
       benchHtml += "</div>";
     } else if (activeBenchmark) {
