@@ -342,6 +342,30 @@ button:disabled {
   color: #64748b;
 }
 
+.results-content .stress-table-title {
+  margin: 20px 0 10px 0;
+  font-size: 14px;
+  color: #e2e8f0;
+  font-weight: 600;
+}
+
+.results-content .benchmark-table.stress-table {
+  max-width: none;
+  border: 1px solid #86efac;
+}
+
+.results-content .benchmark-table.stress-table th,
+.results-content .benchmark-table.stress-table td {
+  border: 1px solid #86efac;
+  padding: 10px 12px;
+  white-space: normal;
+}
+
+.results-content .benchmark-table.stress-table th {
+  background: rgba(134, 239, 172, 0.15);
+  color: #e2e8f0;
+}
+
 .results-content .csv-warn {
   color: #fbbf24;
   font-size: 11px;
