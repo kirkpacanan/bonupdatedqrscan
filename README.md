@@ -18,6 +18,8 @@ This benchmark compares three algorithms using the same dataset sizes, the same 
 - Each dataset has 100 QR queries.
 - Timing uses 10 timed runs per algorithm; results are shown in ms (avg, min, max).
 
+**Full experimental setup and algorithm snippets:** see [EXPERIMENT.md](EXPERIMENT.md).
+
 ## Benchmark vs CSV (important)
 - **The benchmark uses only the dataset decoded from the QR.** It does not use `sampleData.csv` at all.
 - **The benchmark results are the same** whether or not the CSV is loaded. With no local CSV (e.g. file:// or CSV missing), you still get the same timing numbers; only the "Dataset from CSV" table below would show just log_ids instead of full rows.

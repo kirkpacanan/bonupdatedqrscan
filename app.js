@@ -11,6 +11,7 @@ const logIdToFindInput = document.getElementById("logIdToFind");
 const startBtn = document.getElementById("startBtn");
 const stopBtn = document.getElementById("stopBtn");
 const qrFileInput = document.getElementById("qrFileInput");
+const stressTestBtn = document.getElementById("stressTestBtn");
 
 // ------------------------
 // Config
@@ -291,7 +292,7 @@ function renderResults() {
       benchHtml += "</tbody></table>";
       benchHtml += "<p class=\"benchmark-footer\">All algorithms returned the same match count.</p>";
       benchHtml += "</div>";
-    } else if (lastScannedDataset && activeBenchmark) {
+    } else if (activeBenchmark) {
       benchHtml += "<div class=\"benchmark-panel\"><p class=\"benchmark-meta\">Running benchmark…</p></div>";
     } else if (!lastLogIdSearchResult) {
       benchHtml += "<p class=\"results-placeholder\">Scan a QR code to see benchmark results here.</p>";
@@ -362,6 +363,21 @@ if (qrFileInput) {
   qrFileInput.addEventListener("change", (e) => {
     const file = e.target.files && e.target.files[0];
     if (file) processUploadedImage(file);
+  });
+}
+if (stressTestBtn) {
+  stressTestBtn.addEventListener("click", () => {
+    if (activeBenchmark) {
+      statusEl.textContent = "Benchmark already running...";
+      return;
+    }
+    activeBenchmark = true;
+    lastBenchmarkPayload = null;
+    const stressSize = 10000;
+    const dataset = Array.from({ length: stressSize }, (_, i) => ({ log_id: i + 1 }));
+    statusEl.textContent = "Running stress test (n=10,000)...";
+    renderResults();
+    worker.postMessage({ type: "benchmark", payload: { dataset, label: "Stress (n=10000)" } });
   });
 }
 

@@ -1,16 +1,18 @@
+import csv
 import time
-import pandas as pd
 from typing import Callable, Dict, List
 
 # Config
 CSV_FILE = "sampleData.csv"
 SIZES = {"Small": 10, "Medium": 100, "Large": 1000}
+STRESS_SIZE = 10000  # for stress test (synthetic data)
 RUNS = 10
 NUM_QUERIES = 10000
 
-# Load CSV
-df = pd.read_csv(CSV_FILE)
-all_log_ids = df["log_id"].tolist()  # only log_id for benchmarking
+# Load CSV (no pandas required)
+with open(CSV_FILE, newline="", encoding="utf-8") as f:
+    reader = csv.DictReader(f)
+    all_log_ids = [int(row["log_id"]) for row in reader]
 
 def build_queries(dataset: List[int], num_queries: int) -> List[int]:
     hits_count = min(len(dataset), num_queries // 2)
@@ -45,7 +47,7 @@ def time_run(fn: Callable[[List[int], List[int]], int], dataset: List[int], quer
     end = time.perf_counter()
     return (end - start) * 1000.0
 
-def benchmark() -> Dict[str, Dict[str, float]]:
+def benchmark(include_stress: bool = False) -> Dict[str, Dict[str, float]]:
     results = {}
     for label, size in SIZES.items():
         dataset = all_log_ids[:size]
@@ -54,15 +56,25 @@ def benchmark() -> Dict[str, Dict[str, float]]:
         for name, fn in [("Hashing", hashing_search), ("Linear Search", linear_search), ("Brute Force", brute_force_search)]:
             times = [time_run(fn, dataset, queries) for _ in range(RUNS)]
             results[label][name] = sum(times) / len(times)
+    if include_stress:
+        dataset = list(range(1, STRESS_SIZE + 1))
+        queries = build_queries(dataset, NUM_QUERIES)
+        results[f"Stress (n={STRESS_SIZE})"] = {}
+        for name, fn in [("Hashing", hashing_search), ("Linear Search", linear_search), ("Brute Force", brute_force_search)]:
+            times = [time_run(fn, dataset, queries) for _ in range(RUNS)]
+            results[f"Stress (n={STRESS_SIZE})"][name] = sum(times) / len(times)
     return results
 
-def print_results(results: Dict[str, Dict[str, float]]):
+def print_results(results: Dict[str, Dict[str, float]], labels: List[str] = None):
+    labels = labels or list(results.keys())
     print("Dataset | Hashing (ms) | Linear Search (ms) | Brute Force (ms)")
     print("-" * 60)
-    for label in SIZES:
+    for label in labels:
         row = results[label]
         print(f"{label} | {row['Hashing']:.4f} | {row['Linear Search']:.4f} | {row['Brute Force']:.4f}")
 
 if __name__ == "__main__":
-    results = benchmark()
+    import sys
+    include_stress = "--stress" in sys.argv
+    results = benchmark(include_stress=include_stress)
     print_results(results)
