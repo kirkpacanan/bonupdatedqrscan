@@ -25,6 +25,8 @@ let lastScan = 0;
 let lastScannedDataset = null;
 let lastScannedLabel = null;
 let lastBenchmarkPayload = null; // { datasetLabel, datasetLength, algorithms: [{ name, avgMs, minMs, maxMs }], ... }
+let lastRunWasStressTest = false;
+let lastStressPayload = null;    // { scenarios: [ { name, algorithms: [...] } ] } — only set after "Run stress test"
 // Result of "log ID to find" check after scan (shown above benchmark)
 let lastLogIdSearchResult = null;
 // When true, next render highlights only the row with log_id === search (used after "Log ID to find" auto-fill)
@@ -280,7 +282,24 @@ function renderResults() {
     if (lastLogIdSearchResult) {
       benchHtml += "<div class=\"benchmark-logid-result\">" + escapeHtml(lastLogIdSearchResult) + "</div>";
     }
-    if (lastBenchmarkPayload) {
+    if (lastStressPayload) {
+      // Stress test table: only shown after "Run stress test" completes; each row = different scenario (different constraints)
+      const scenarios = lastStressPayload.scenarios || [];
+      benchHtml += "<div class=\"benchmark-panel\">";
+      benchHtml += "<p class=\"benchmark-meta\">Stress test: 3 scenarios (different constraints). 10,000 queries per scenario.</p>";
+      benchHtml += "<table class=\"benchmark-table stress-table\"><thead><tr><th>Scenario</th><th>Hashing (ms)</th><th>Linear Search (ms)</th><th>Brute Force (ms)</th></tr></thead><tbody>";
+      scenarios.forEach((s) => {
+        const hashAlg = s.algorithms.find((a) => a.name.toLowerCase().includes("hash"));
+        const linearAlg = s.algorithms.find((a) => a.name.toLowerCase().includes("linear"));
+        const bruteAlg = s.algorithms.find((a) => a.name.toLowerCase().includes("brute"));
+        const hashMs = hashAlg ? hashAlg.avgMs.toFixed(4) : "—";
+        const linearMs = linearAlg ? linearAlg.avgMs.toFixed(4) : "—";
+        const bruteMs = bruteAlg ? bruteAlg.avgMs.toFixed(4) : "—";
+        benchHtml += "<tr><td><strong>" + escapeHtml(s.name) + "</strong></td><td>" + hashMs + "</td><td>" + linearMs + "</td><td>" + bruteMs + "</td></tr>";
+      });
+      benchHtml += "</tbody></table>";
+      benchHtml += "</div>";
+    } else if (lastBenchmarkPayload) {
       const p = lastBenchmarkPayload;
       benchHtml += "<div class=\"benchmark-panel\">";
       benchHtml += "<p class=\"benchmark-meta\">Dataset: <strong>" + escapeHtml(p.datasetLabel) + "</strong> (" + p.datasetLength + " rows) · " + p.queriesCount + " queries (50% hits, 50% misses)</p>";
@@ -291,21 +310,10 @@ function renderResults() {
       });
       benchHtml += "</tbody></table>";
       benchHtml += "<p class=\"benchmark-footer\">All algorithms returned the same match count.</p>";
-      benchHtml += "<h3 class=\"stress-table-title\">Stress test by scenario</h3>";
-      const hashAlg = p.algorithms.find((a) => a.name.toLowerCase().includes("hash"));
-      const linearAlg = p.algorithms.find((a) => a.name.toLowerCase().includes("linear"));
-      const bruteAlg = p.algorithms.find((a) => a.name.toLowerCase().includes("brute"));
-      const hashMs = hashAlg ? hashAlg.avgMs.toFixed(4) : "—";
-      const linearMs = linearAlg ? linearAlg.avgMs.toFixed(4) : "—";
-      const bruteMs = bruteAlg ? bruteAlg.avgMs.toFixed(4) : "—";
-      benchHtml += "<table class=\"benchmark-table stress-table\"><thead><tr><th>Scenario</th><th>Hashing (ms)</th><th>Linear Search (ms)</th><th>Brute Force (ms)</th></tr></thead><tbody>";
-      benchHtml += "<tr><td><strong>Input grows 10×</strong></td><td>" + hashMs + "</td><td>" + linearMs + "</td><td>" + bruteMs + "</td></tr>";
-      benchHtml += "<tr><td><strong>Worst-case input</strong></td><td>" + hashMs + "</td><td>" + linearMs + "</td><td>" + bruteMs + "</td></tr>";
-      benchHtml += "<tr><td><strong>Memory-limited</strong></td><td>" + hashMs + "</td><td>" + linearMs + "</td><td>" + bruteMs + "</td></tr>";
-      benchHtml += "</tbody></table>";
       benchHtml += "</div>";
     } else if (activeBenchmark) {
-      benchHtml += "<div class=\"benchmark-panel\"><p class=\"benchmark-meta\">Running benchmark…</p></div>";
+      const runningMsg = lastRunWasStressTest ? "Running stress test (3 scenarios)…" : "Running benchmark…";
+      benchHtml += "<div class=\"benchmark-panel\"><p class=\"benchmark-meta\">" + escapeHtml(runningMsg) + "</p></div>";
     } else if (!lastLogIdSearchResult) {
       benchHtml += "<p class=\"results-placeholder\">Scan a QR code to see benchmark results here.</p>";
     }
@@ -315,8 +323,18 @@ function renderResults() {
 
 worker.onmessage = (e) => {
   const { type, payload } = e.data;
+  if (type === "stressResults") {
+    lastStressPayload = payload;
+    lastBenchmarkPayload = null;
+    activeBenchmark = false;
+    statusEl.textContent = "Stress test complete!";
+    renderResults();
+    return;
+  }
   if (type === "results") {
     lastBenchmarkPayload = payload;
+    lastStressPayload = null;
+    lastRunWasStressTest = false;
     renderResults();
     statusEl.textContent = "Benchmark complete!";
     activeBenchmark = false;
@@ -334,6 +352,8 @@ function handleScan(data) {
     lastScannedDataset = parsed.dataset;
     lastScannedLabel = parsed.label;
     lastBenchmarkPayload = null;
+    lastRunWasStressTest = false;
+    lastStressPayload = null;
 
     // Optional: check if user's "Log ID to find" is in the scanned dataset
     const logIdStr = logIdToFindInput && logIdToFindInput.value.trim();
@@ -385,11 +405,11 @@ if (stressTestBtn) {
     }
     activeBenchmark = true;
     lastBenchmarkPayload = null;
-    const stressSize = 10000;
-    const dataset = Array.from({ length: stressSize }, (_, i) => ({ log_id: i + 1 }));
-    statusEl.textContent = "Running stress test (n=10,000)...";
+    lastStressPayload = null;
+    lastRunWasStressTest = true;
+    statusEl.textContent = "Running stress test (3 scenarios)...";
     renderResults();
-    worker.postMessage({ type: "benchmark", payload: { dataset, label: "Stress (n=10000)" } });
+    worker.postMessage({ type: "stressTest" });
   });
 }
 
