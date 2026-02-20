@@ -292,10 +292,14 @@ function renderResults() {
       benchHtml += "</tbody></table>";
       benchHtml += "<p class=\"benchmark-footer\">All algorithms returned the same match count.</p>";
       benchHtml += "<h3 class=\"stress-table-title\">Stress test by scenario</h3>";
-      benchHtml += "<table class=\"benchmark-table stress-table\"><thead><tr><th>Scenario</th><th>Hashing</th><th>Linear Search</th><th>Brute Force</th></tr></thead><tbody>";
-      benchHtml += "<tr><td><strong>Input grows 10×</strong></td><td>Slow increase (0.04 → 0.11 ms over 100× input; ~2.75× runtime)</td><td>Linear growth (0.10 → 6.54 ms; ~65× runtime)</td><td>Rapid growth (0.11 → 7.71 ms; ~70× runtime)</td></tr>";
-      benchHtml += "<tr><td><strong>Worst-case input</strong></td><td>Collisions may degrade to O(n) per lookup</td><td>Always O(n) per query</td><td>Always O(n) per query (no early exit)</td></tr>";
-      benchHtml += "<tr><td><strong>Memory-limited</strong></td><td>High usage — O(n) space for map/set</td><td>Moderate — O(1) extra space</td><td>Minimal — O(1) extra space</td></tr>";
+      const hashAlg = p.algorithms.find((a) => a.name.toLowerCase().includes("hash"));
+      const linearAlg = p.algorithms.find((a) => a.name.toLowerCase().includes("linear"));
+      const bruteAlg = p.algorithms.find((a) => a.name.toLowerCase().includes("brute"));
+      const hashMs = hashAlg ? hashAlg.avgMs.toFixed(4) : "—";
+      const linearMs = linearAlg ? linearAlg.avgMs.toFixed(4) : "—";
+      const bruteMs = bruteAlg ? bruteAlg.avgMs.toFixed(4) : "—";
+      benchHtml += "<table class=\"benchmark-table stress-table\"><thead><tr><th>Scenario</th><th>Hashing (ms)</th><th>Linear Search (ms)</th><th>Brute Force (ms)</th></tr></thead><tbody>";
+      benchHtml += "<tr><td><strong>" + escapeHtml(p.datasetLabel) + "</strong></td><td>" + hashMs + "</td><td>" + linearMs + "</td><td>" + bruteMs + "</td></tr>";
       benchHtml += "</tbody></table>";
       benchHtml += "</div>";
     } else if (activeBenchmark) {
